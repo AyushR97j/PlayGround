@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DSA Prep Sheet</title>
+  <meta name="description" content="One DSA sheet for OA prep: Striver A2Z, the DSA master set, Google and Apple Hards, Claude's 109 and the company OA set, with progress shared across every list.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232f6f5e'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11.5' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/style.css">
+  <script>
+    try {
+      var t = JSON.parse(localStorage.getItem('dsaSheet.settings.v1') || '{}').theme;
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <a class="skip" href="#view">Skip to content</a>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#/" aria-label="DSA Prep Sheet, dashboard">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">DSA Prep Sheet</span>
+      </a>
+      <div class="top-actions">
+        <button class="sync-pill" id="syncPill" type="button" aria-haspopup="dialog">
+          <span class="dot" aria-hidden="true"></span><span class="sync-text">Saved in this browser</span>
+        </button>
+        <button class="icon-btn" id="themeBtn" type="button" aria-label="Switch colour theme" title="Theme"></button>
+      </div>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Sections"></nav>
+  </header>
+
+  <div id="banner" class="banner" hidden></div>
+  <main id="view" class="view" tabindex="-1">
+    <div class="loading">Loading problems…</div>
+  </main>
+
+  <div class="scrim" id="scrim" hidden></div>
+  <aside class="drawer" id="drawer" aria-label="Problem details" hidden></aside>
+
+  <dialog class="modal" id="syncModal" aria-labelledby="syncTitle"></dialog>
+  <div class="menu" id="statusMenu" role="menu" hidden></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="assets/app.js" defer></script>
+</body>
+</html>
