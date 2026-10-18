@@ -30,8 +30,23 @@ Progress is saved in your browser automatically. Click the save status at the to
 3. **Backup file**: download a `.json` backup and load it anywhere (merge keeps the newest change for each problem).
 4. **Export CSV** for Excel, with D / D/ND / ND codes in the same column order as Sheet2.
 
+## Privacy: passphrase lock
+
+The site opens on a lock screen. The problem lists and the progress imported from the workbooks are stored only in encrypted form in `data/vault.json` (AES-256-GCM, key derived from the passphrase with PBKDF2-SHA256, 600,000 iterations), and the browser decrypts them after you enter the passphrase. *Remember on this device* keeps a non-exportable key in the browser so you are not asked again; the lock button at the top right forgets it.
+
+Progress you make on the site is never written to this repo: it stays in your browser, your progress file or your private gist.
+
+To change the passphrase or update the data, decrypt, edit, and lock again (Node 18+):
+
+```bash
+node tools/vault.mjs unlock data/vault.json ../private
+node tools/vault.mjs lock ../private data/vault.json
+```
+
+Keep the decrypted folder outside the repo so it is never committed.
+
 ## Files
 
 - `index.html`, `assets/style.css`, `assets/app.js`: the site (plain HTML/CSS/JS, no build step).
-- `data/sheet.json`: all sections and problems (titles, links, difficulty, ratings, tags, patterns, hints).
-- `data/seed.json`: the statuses, REVISE flags and notes imported from the workbooks; loaded the first time the site opens in a browser.
+- `data/vault.json`: the encrypted sheet: every section and problem (titles, links, difficulty, ratings, tags, patterns, hints) plus the statuses, REVISE flags and notes imported from the workbooks.
+- `tools/vault.mjs`: locks and unlocks `data/vault.json`.

@@ -80,6 +80,7 @@
     browser: svg('<rect x="1.5" y="2.5" width="13" height="11" rx="1.5"/><path d="M1.5 5.5h13"/>'),
     expand: svg('<path d="M4 6l4 4 4-4"/>'),
     reset: svg('<path d="M2.5 8a5.5 5.5 0 109.4-3.9M12.5 1.5v3h-3"/>'),
+    lock: svg('<rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 015 0v2"/>'),
   };
 
   // ------------------------------------------------------------------ state
@@ -95,21 +96,24 @@
 
   // ------------------------------------------------------------------ boot
   async function boot() {
+    loadSettings();
+    applyTheme();
+    $('#themeBtn').addEventListener('click', toggleTheme);
+    let vault;
     try {
-      const [sheet, seed] = await Promise.all([
-        fetch('data/sheet.json').then((r) => { if (!r.ok) throw new Error(r.status); return r.json(); }),
-        fetch('data/seed.json').then((r) => (r.ok ? r.json() : {})).catch(() => ({})),
-      ]);
-      DATA = sheet;
-      SEED = seed;
+      vault = await fetch('data/vault.json', { cache: 'no-cache' }).then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); });
+      if (!window.crypto?.subtle || typeof DecompressionStream !== 'function') throw new Error('this browser is too old to open the sheet');
     } catch (e) {
-      view.innerHTML = `<div class="empty">Could not load the problem list (${esc(e.message)}). If you opened index.html from disk, open the hosted site instead.</div>`;
+      view.innerHTML = `<div class="empty">Could not load the sheet (${esc(e.message)}). If you opened index.html from disk, open the hosted site instead.</div>`;
       return;
     }
+    const payload = (await openWithSavedKey(vault)) || (await lockScreen(vault));
+    DATA = payload.sheet;
+    SEED = payload.seed || {};
+    document.body.classList.remove('locked');
+    view.innerHTML = '';
     indexData();
-    loadSettings();
     loadProgress();
-    applyTheme();
     renderTabs();
     bindGlobal();
     route();
@@ -852,15 +856,18 @@
     });
     window.addEventListener('scroll', () => closeMenu(), { passive: true });
 
-    $('#themeBtn').addEventListener('click', () => {
-      const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
-        (!document.documentElement.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
-      S.theme = dark ? 'light' : 'dark';
-      saveSettings();
-      applyTheme();
-    });
+    $('#lockBtn').innerHTML = I.lock;
+    $('#lockBtn').addEventListener('click', lockDevice);
     $('#syncPill').addEventListener('click', openSyncModal);
     $('#scrim').addEventListener('click', closeDrawer);
+  }
+
+  function toggleTheme() {
+    const dark = document.documentElement.getAttribute('data-theme') === 'dark' ||
+      (!document.documentElement.getAttribute('data-theme') && matchMedia('(prefers-color-scheme: dark)').matches);
+    S.theme = dark ? 'light' : 'dark';
+    saveSettings();
+    applyTheme();
   }
 
   function applyTheme() {
@@ -1465,6 +1472,75 @@
       if (a === 'csv') exportCSV();
       if (a === 'reset') resetProgress();
     };
+  }
+
+  // ------------------------------------------------------------------ passphrase lock
+  // data/vault.json = AES-256-GCM(gzip(JSON {sheet, seed})), key = PBKDF2-SHA256(passphrase). Written by tools/vault.mjs.
+  const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+
+  async function vaultKey(passphrase, vault) {
+    const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase.normalize('NFC')), 'PBKDF2', false, ['deriveKey']);
+    return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt: unb64(vault.salt), iterations: vault.iter },
+      base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  }
+  async function openVault(vault, key) {
+    const packed = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: unb64(vault.iv) }, key, unb64(vault.data));
+    const text = await new Response(new Blob([packed]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+    return JSON.parse(text);
+  }
+  async function openWithSavedKey(vault) {
+    let saved;
+    try { saved = await idb.get('vaultKey'); } catch { return null; }
+    if (!saved || saved.salt !== vault.salt) return null;
+    try { return await openVault(vault, saved.key); } catch {
+      try { await idb.del('vaultKey'); } catch { /* ignore */ }
+      return null;
+    }
+  }
+  function lockScreen(vault) {
+    return new Promise((resolve) => {
+      view.innerHTML = `
+        <div class="lock-wrap">
+          <form class="card lock-card" id="lockForm">
+            <div class="lock-icon">${I.lock}</div>
+            <h1>This sheet is private</h1>
+            <p class="muted">Enter the passphrase to open it.</p>
+            <label for="lockPass" class="sr-only">Passphrase</label>
+            <input class="input" id="lockPass" type="password" autocomplete="current-password" placeholder="Passphrase" required autofocus>
+            <label class="check"><input type="checkbox" id="lockRemember" checked> Remember on this device</label>
+            <button class="btn primary" type="submit" id="lockGo">Unlock</button>
+            <p class="lock-err" id="lockErr" role="alert"></p>
+          </form>
+        </div>`;
+      const form = $('#lockForm'), pass = $('#lockPass'), go = $('#lockGo'), err = $('#lockErr');
+      pass.focus();
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!pass.value) return;
+        go.disabled = true;
+        go.textContent = 'Unlocking…';
+        err.textContent = '';
+        try {
+          const key = await vaultKey(pass.value, vault);
+          const payload = await openVault(vault, key);
+          if ($('#lockRemember').checked) {
+            try { await idb.set('vaultKey', { key, salt: vault.salt }); } catch { /* private window: unlock for this visit only */ }
+          }
+          resolve(payload);
+        } catch {
+          err.textContent = 'That passphrase is not right.';
+          go.disabled = false;
+          go.textContent = 'Unlock';
+          pass.select();
+        }
+      });
+    });
+  }
+  async function lockDevice() {
+    if (!confirm('Lock the sheet on this device? You will need the passphrase to open it again. Your progress here is kept.')) return;
+    flushNotes();
+    try { await idb.del('vaultKey'); } catch { /* ignore */ }
+    location.reload();
   }
 
   boot();
