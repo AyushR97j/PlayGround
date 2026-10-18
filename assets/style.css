@@ -21,6 +21,10 @@
   --bad: #c2453d;
   --bad-soft: #f8e1df;
   --star: #d39b16;
+  --dnd: #2f74b5;
+  --dnd-soft: #dfeaf6;
+  --nd: #c08419;
+  --nd-soft: #f8edd7;
 
   --easy: #1f8a7a;
   --easy-soft: #dcf1ec;
@@ -66,6 +70,10 @@
     --bad: #ec7a70;
     --bad-soft: #3d1f1c;
     --star: #f0c04a;
+    --dnd: #6aaae6;
+    --dnd-soft: #1b2f44;
+    --nd: #e2ad4c;
+    --nd-soft: #3a2f17;
     --easy: #4fc6b2;
     --easy-soft: #183631;
     --med: #e2ad4c;
@@ -104,6 +112,10 @@
   --bad: #ec7a70;
   --bad-soft: #3d1f1c;
   --star: #f0c04a;
+  --dnd: #6aaae6;
+  --dnd-soft: #1b2f44;
+  --nd: #e2ad4c;
+  --nd-soft: #3a2f17;
   --easy: #4fc6b2;
   --easy-soft: #183631;
   --med: #e2ad4c;
@@ -270,7 +282,7 @@ kbd {
 .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--text-2); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
 .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-.sw.ok { background: var(--ok); } .sw.help { background: var(--help); } .sw.bad { background: var(--bad); } .sw.none { background: var(--surface-3); }
+.sw.ok { background: var(--ok); } .sw.dnd { background: var(--dnd); } .sw.nd { background: var(--nd); } .sw.none { background: var(--surface-3); }
 .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .stat { padding: 16px 18px; }
 .stat .k { font-size: 12.5px; color: var(--muted); }
@@ -286,7 +298,7 @@ kbd {
 .sec-card .meta { font-size: 12.5px; color: var(--muted); margin: 2px 0 10px; }
 .bar { height: 8px; border-radius: 99px; background: var(--surface-3); overflow: hidden; display: flex; }
 .bar > i { display: block; height: 100%; }
-.bar .ok { background: var(--ok); } .bar .help { background: var(--help); } .bar .bad { background: color-mix(in srgb, var(--bad) 70%, transparent); }
+.bar .ok { background: var(--ok); } .bar .dnd { background: var(--dnd); } .bar .nd { background: var(--nd); }
 .diffs { display: flex; gap: 12px; margin-top: 10px; font-size: 12px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .diffs b { font-weight: 600; }
 .diffs .e { color: var(--easy); } .diffs .m { color: var(--med); } .diffs .h { color: var(--hard); }
@@ -362,7 +374,7 @@ kbd {
 .prow:hover { background: color-mix(in srgb, var(--surface-2) 70%, transparent); }
 .prow.flash { animation: flash 1.6s ease-out; }
 @keyframes flash { 0%, 30% { background: var(--accent-soft); } 100% { background: transparent; } }
-.prow[data-st="solved"] .ptitle, .prow[data-st="help"] .ptitle { color: var(--text-2); }
+.prow[data-st="solved"] .ptitle, .prow[data-st="help"] .ptitle, .prow[data-st="attempted"] .ptitle { color: var(--text-2); }
 .prow.lesson .ptitle { font-style: italic; }
 .c-status { display: flex; align-items: center; gap: 1px; }
 .chk {
@@ -372,8 +384,8 @@ kbd {
 .chk:hover { border-color: var(--ok); }
 .chk svg { width: 14px; height: 14px; }
 .prow[data-st="solved"] .chk { background: var(--ok); border-color: var(--ok); color: #fff; }
-.prow[data-st="help"] .chk { background: var(--help); border-color: var(--help); color: #fff; }
-.prow[data-st="attempted"] .chk { border-color: var(--bad); color: var(--bad); background: var(--bad-soft); }
+.prow[data-st="help"] .chk { background: var(--dnd); border-color: var(--dnd); color: #fff; }
+.prow[data-st="attempted"] .chk { background: var(--nd); border-color: var(--nd); color: #fff; }
 .caret { border: 0; background: transparent; color: var(--muted); padding: 2px; border-radius: 5px; width: 20px; height: 24px; display: grid; place-items: center; }
 .caret:hover { background: var(--surface-3); color: var(--text); }
 .caret svg { width: 12px; height: 12px; }
@@ -391,8 +403,8 @@ kbd {
   background: var(--surface-2); color: var(--text-2); border: 1px solid var(--border);
 }
 .badge.prem { color: var(--help); background: var(--help-soft); border-color: transparent; }
-.badge.st-help { color: var(--help); background: var(--help-soft); border-color: transparent; }
-.badge.st-attempted { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
+.badge.st-help { color: var(--dnd); background: var(--dnd-soft); border-color: transparent; }
+.badge.st-attempted { color: var(--nd); background: var(--nd-soft); border-color: transparent; }
 .badge.pri { font-family: var(--mono); }
 .badge.p1 { color: var(--bad); background: var(--bad-soft); border-color: transparent; }
 .badge.p2, .badge.c1 { color: var(--help); background: var(--help-soft); border-color: transparent; }
@@ -464,8 +476,8 @@ kbd {
 .seg button small { display: block; font: 10.5px var(--mono); color: var(--muted); margin-top: 2px; }
 .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.1); }
 .seg button[data-s="solved"][aria-pressed="true"] { color: var(--ok); }
-.seg button[data-s="help"][aria-pressed="true"] { color: var(--help); }
-.seg button[data-s="attempted"][aria-pressed="true"] { color: var(--bad); }
+.seg button[data-s="help"][aria-pressed="true"] { color: var(--dnd); }
+.seg button[data-s="attempted"][aria-pressed="true"] { color: var(--nd); }
 .dr-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .dr-links { display: flex; flex-wrap: wrap; gap: 8px; }
 textarea.notes {

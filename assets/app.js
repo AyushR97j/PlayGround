@@ -13,14 +13,16 @@
   const SYNC_FILE = 'dsa-progress.json';
   const JSON_TYPES = [{ description: 'DSA progress (JSON)', accept: { 'application/json': ['.json'] } }];
 
+  // Your sheet's codes. D and D/ND: solved by yourself (two tags). ND: solved after reading the solution.
+  // All three count as done. (Stored values stay 'solved' / 'help' / 'attempted' so saved progress keeps working.)
   const STATUSES = [
-    { s: '', label: 'Not started', code: '', sw: 'none' },
-    { s: 'attempted', label: 'Attempted, not solved', code: 'ND', sw: 'bad' },
-    { s: 'help', label: 'Solved with help', code: 'D/ND', sw: 'help' },
-    { s: 'solved', label: 'Solved', code: 'D', sw: 'ok' },
+    { s: '', label: 'Not solved yet', short: 'Not solved', code: '', sw: 'none' },
+    { s: 'attempted', label: 'Solved after seeing the solution', short: 'ND', code: 'ND', sw: 'nd' },
+    { s: 'help', label: 'Solved by yourself (D/ND tag)', short: 'D/ND', code: 'D/ND', sw: 'dnd' },
+    { s: 'solved', label: 'Solved by yourself (D tag)', short: 'D', code: 'D', sw: 'ok' },
   ];
   const ST = Object.fromEntries(STATUSES.map((x) => [x.s, x]));
-  const done = (s) => s === 'solved' || s === 'help';
+  const done = (s) => s === 'solved' || s === 'help' || s === 'attempted';
   const EMPTY = Object.freeze({});
 
   const X_LABELS = {
@@ -179,10 +181,23 @@
     try { raw = JSON.parse(localStorage.getItem(PKEY)); } catch { raw = null; }
     P = raw && typeof raw.items === 'object' ? raw : { v: 1, items: {}, seedVer: null };
     if (P.seedVer !== DATA.generated) {
-      // first visit (or a newer data build): bring in the statuses/notes from the workbooks without overwriting edits
-      for (const [k, e] of Object.entries(SEED)) if (!P.items[k]) P.items[k] = { ...e, u: 1 };
+      // First visit, or a newer import from your sheets. Problems never touched on the site take the sheet's values.
+      // Problems you edited on the site keep your edits, unless the sheet changed them in this import (ch): then the
+      // sheet's status wins and its note is added under yours.
+      let changed = 0;
+      for (const [k, { ch, ...e }] of Object.entries(SEED)) {
+        const cur = P.items[k];
+        if (!cur || (cur.u || 0) <= 1) { P.items[k] = { ...e, u: 1 }; continue; }
+        if (!ch) continue;
+        const next = { ...cur, u: Date.now() };
+        if (e.s) { if (!done(cur.s)) next.sd = next.sd || today(); next.s = e.s; }
+        if (e.rv) next.rv = 1;
+        if (e.n && !(cur.n || '').includes(e.n)) next.n = cur.n ? `${cur.n}\n\n${e.n}` : e.n;
+        P.items[k] = next;
+        changed++;
+      }
       P.seedVer = DATA.generated;
-      saveLocal(false);
+      saveLocal(changed > 0);
     }
   }
   function saveLocal(sync = true) {
@@ -239,13 +254,14 @@
       else if (s === 'attempted') c.attempted++;
       else c.none++;
     }
-    c.done = c.solved + c.help;
+    c.done = c.solved + c.help + c.attempted;
     return c;
   }
   function barHTML(c) {
     const t = c.total || 1;
-    return `<div class="bar" role="img" aria-label="${c.done} of ${c.total} solved"><i class="ok" style="width:${(c.solved * 100) / t}%"></i><i class="help" style="width:${(c.help * 100) / t}%"></i><i class="bad" style="width:${(c.attempted * 100) / t}%"></i></div>`;
+    return `<div class="bar" role="img" aria-label="${c.done} of ${c.total} solved"><i class="ok" style="width:${(c.solved * 100) / t}%"></i><i class="dnd" style="width:${(c.help * 100) / t}%"></i><i class="nd" style="width:${(c.attempted * 100) / t}%"></i></div>`;
   }
+  const legendHTML = (c) => `<span><i class="sw ok"></i>D ${c.solved}</span><span><i class="sw dnd"></i>D/ND ${c.help}</span><span><i class="sw nd"></i>ND ${c.attempted}</span><span><i class="sw none"></i>${c.none} not solved</span>`;
 
   // ------------------------------------------------------------------ tabs + routing
   function renderTabs() {
@@ -344,20 +360,15 @@
             <svg viewBox="0 0 132 132">
               <circle cx="66" cy="66" r="${R}" fill="none" stroke="var(--surface-3)" stroke-width="12"/>
               ${seg(all.solved, 0, 'var(--ok)')}
-              ${seg(all.help, solvedLen, 'var(--help)')}
-              ${seg(all.attempted, solvedLen + helpLen, 'color-mix(in srgb, var(--bad) 70%, transparent)')}
+              ${seg(all.help, solvedLen, 'var(--dnd)')}
+              ${seg(all.attempted, solvedLen + helpLen, 'var(--nd)')}
             </svg>
             <div class="ring-label"><div class="big">${fmtPct(all.done, all.total)}</div><div class="small">overall</div></div>
           </div>
           <div class="hero-copy">
             <h1>${all.done} of ${all.total} problems solved</h1>
-            <p>Counted once per problem across every section. Mark a problem anywhere and it is marked in every list that has it.</p>
-            <div class="legend">
-              <span><i class="sw ok"></i>Solved (D) ${all.solved}</span>
-              <span><i class="sw help"></i>With help (D/ND) ${all.help}</span>
-              <span><i class="sw bad"></i>Attempted (ND) ${all.attempted}</span>
-              <span><i class="sw none"></i>Not started ${all.none}</span>
-            </div>
+            <p>Counted once per problem across every section. D and D/ND: solved by yourself. ND: solved after seeing the solution. All three count as solved.</p>
+            <div class="legend">${legendHTML(all)}</div>
           </div>
         </div>
         <div class="stats">
@@ -377,7 +388,7 @@
       html += `
         <a class="card sec-card" href="#/s/${s.id}">
           <div class="row1"><h3>${esc(s.name)}</h3><span class="pct-big">${fmtPct(c.done, c.total)}</span></div>
-          <div class="meta">${c.done} / ${c.total} solved${c.attempted ? ` · ${c.attempted} attempted` : ''}</div>
+          <div class="meta">${c.done} / ${c.total} solved · D ${c.solved} · D/ND ${c.help} · ND ${c.attempted}</div>
           ${barHTML(c)}
           <div class="diffs">${[['Easy', 'e', 'Easy'], ['Medium', 'm', 'Med'], ['Hard', 'h', 'Hard']].filter(([n]) => d[n][1]).map(([n, c, l]) => `<span class="${c}">${l} <b>${d[n][0]}/${d[n][1]}</b></span>`).join('')}</div>
         </a>`;
@@ -417,7 +428,7 @@
     };
     first('claude', (r) => r.x.pri === 'P1', "Claude 109 · next P1");
     first('company', (r) => true, 'Company OA set');
-    first('google', (r) => r.gi === 0 && !E(r.k).s, 'Google · your list, not attempted');
+    first('google', (r) => r.gi === 0, 'Google · your list');
     first('striver', (r) => !PROB[r.k].ls, 'Striver A2Z · continue');
     first('master', () => true, 'DSA master set');
     const rev = ALL_KEYS.filter((k) => E(k).rv).sort((a, b) => (E(a).lr || '').localeCompare(E(b).lr || ''))[0];
@@ -467,17 +478,15 @@
       const p = PROB[k];
       if (p.pl !== 'LeetCode' || !p.r) continue;
       const b = p.r < 1300 ? 1200 : p.r >= 3000 ? 3000 : Math.floor(p.r / 100) * 100;
-      const v = bands.get(b) || { t: 0, d: 0, a: 0 };
-      v.t++;
-      if (done(E(k).s)) v.d++; else if (E(k).s === 'attempted') v.a++;
-      bands.set(b, v);
+      if (!bands.has(b)) bands.set(b, []);
+      bands.get(b).push(k);
     }
     const keys = [...bands.keys()].sort((a, b) => a - b);
     let h = '<div class="bands">';
     for (const b of keys) {
-      const v = bands.get(b);
+      const c = counts(bands.get(b));
       const lbl = b === 1200 ? '< 1300' : b === 3000 ? '3000+' : `${b}–${b + 99}`;
-      h += `<span class="lbl">${lbl}</span>${barHTML({ solved: v.d, help: 0, attempted: v.a, total: v.t, done: v.d })}<span class="num">${v.d}/${v.t}</span>`;
+      h += `<span class="lbl">${lbl}</span>${barHTML(c)}<span class="num" title="D ${c.solved} · D/ND ${c.help} · ND ${c.attempted}">${c.done}/${c.total}</span>`;
     }
     return h + '</div>';
   }
@@ -505,7 +514,7 @@
       <div class="toolbar" id="toolbar">
         <label class="search">${I.search}<input class="input" id="q" type="search" placeholder="Search title, ID, pattern, tag, notes" value="${esc(f.q)}" aria-label="Search problems" autocomplete="off"><kbd>/</kbd></label>
         <div class="chipset" role="group" aria-label="Status filter">
-          ${stBtn('all', 'All')}${stBtn('todo', 'To do')}${stBtn('done', 'Solved')}${stBtn('attempted', 'Attempted')}${stBtn('revise', '★ Revise')}${stBtn('notes', 'Notes')}
+          ${stBtn('all', 'All')}${stBtn('todo', 'Not solved')}${stBtn('done', 'Solved')}${stBtn('d', 'D')}${stBtn('dnd', 'D/ND')}${stBtn('nd', 'ND')}${stBtn('revise', '★ Revise')}${stBtn('notes', 'Notes')}
         </div>
         <select class="select" id="fDiff" aria-label="Difficulty">
           ${['all', 'Easy', 'Medium', 'Hard'].map((d) => `<option value="${d}"${f.diff === d ? ' selected' : ''}>${d === 'all' ? 'Any difficulty' : d}</option>`).join('')}
@@ -542,9 +551,7 @@
     el.innerHTML = `
       <div class="row1"><span class="muted">${c.done} / ${c.total} solved</span><span class="pct-big">${fmtPct(c.done, c.total)}</span></div>
       ${barHTML(c)}
-      <div class="legend" style="margin-top:10px;font-size:12.5px">
-        <span><i class="sw ok"></i>${c.solved} D</span><span><i class="sw help"></i>${c.help} D/ND</span><span><i class="sw bad"></i>${c.attempted} ND</span><span><i class="sw none"></i>${c.none} left</span>
-      </div>`;
+      <div class="legend" style="margin-top:10px;font-size:12.5px">${legendHTML(c)}</div>`;
   }
 
   function filterActive(f) {
@@ -555,7 +562,9 @@
     const p = PROB[r.k], e = E(r.k), s = e.s || '';
     if (f.st === 'todo' && done(s)) return false;
     if (f.st === 'done' && !done(s)) return false;
-    if (f.st === 'attempted' && s !== 'attempted') return false;
+    if (f.st === 'd' && s !== 'solved') return false;
+    if (f.st === 'dnd' && s !== 'help') return false;
+    if ((f.st === 'nd' || f.st === 'attempted') && s !== 'attempted') return false;
     if (f.st === 'revise' && !e.rv) return false;
     if (f.st === 'notes' && !e.n) return false;
     if (f.diff !== 'all' && p.d !== f.diff) return false;
@@ -697,8 +706,8 @@
     const extra = extraHTML(sec, x, r.k);
     return `<div class="prow${p.ls ? ' lesson' : ''}" data-k="${esc(r.k)}" data-st="${s}">
       <div class="c-status">
-        <button type="button" class="chk" data-act="toggle" aria-label="${done(s) ? 'Unmark' : 'Mark'} solved: ${esc(title)}" title="${done(s) ? 'Unmark' : 'Mark solved'}">${I.check}</button>
-        <button type="button" class="caret" data-act="menu" aria-haspopup="menu" aria-label="Status options: ${esc(title)}" title="D / D-ND / ND">${I.chev}</button>
+        <button type="button" class="chk" data-act="toggle" aria-label="${done(s) ? 'Unmark' : 'Mark'} solved: ${esc(title)}" title="${done(s) ? `${ST[s].code}: ${ST[s].label}. Click to unmark` : 'Mark solved (D)'}">${I.check}</button>
+        <button type="button" class="caret" data-act="menu" aria-haspopup="menu" aria-label="Status options: ${esc(title)}" title="Choose D, D/ND or ND">${I.chev}</button>
       </div>
       <div class="c-title">
         <div class="tline"><a class="ptitle" href="${esc(primaryUrl(r))}" target="_blank" rel="noopener">${esc(title)}</a><span class="pid">${esc(idLabel(r.k, p))}</span>${p.pr ? '<span class="badge prem" title="LeetCode Premium">Premium</span>' : ''}${statusBadge(s)}</div>
@@ -996,7 +1005,7 @@
         <div class="dr-section">
           <div class="dr-label">Status <span class="saved-hint">${e.u > 1 ? `Updated ${ago(e.u)}` : e.u === 1 ? 'From your workbook' : ''}</span></div>
           <div class="seg" role="group" aria-label="Status">
-            ${STATUSES.map((x) => `<button type="button" data-s="${x.s}" aria-pressed="${s === x.s}">${esc(x.s === '' ? 'Not started' : x.s === 'attempted' ? 'Attempted' : x.s === 'help' ? 'With help' : 'Solved')}<small>${x.code || '—'}</small></button>`).join('')}
+            ${STATUSES.map((x) => `<button type="button" data-s="${x.s}" aria-pressed="${s === x.s}" title="${esc(x.label)}">${esc(x.short)}<small>${{ '': 'not yet', solved: 'by myself', help: 'by myself', attempted: 'saw solution' }[x.s]}</small></button>`).join('')}
           </div>
           <div class="dr-row" style="margin-top:10px">
             <button type="button" class="btn sm dr-rv" aria-pressed="${!!e.rv}">${e.rv ? '★ In revision list' : '☆ Add to revision list'}</button>
