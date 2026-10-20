@@ -431,6 +431,7 @@
     first('google', (r) => r.gi === 0, 'Google · your list');
     first('striver', (r) => !PROB[r.k].ls, 'Striver A2Z · continue');
     first('master', () => true, 'DSA master set');
+    first('cses', () => true, 'CSES · continue');
     const rev = ALL_KEYS.filter((k) => E(k).rv).sort((a, b) => (E(a).lr || '').localeCompare(E(b).lr || ''))[0];
     if (rev) items.push({ label: 'Revise · least recently revised', r: { k: rev, x: firstX(rev) }, sid: IN_SECS[rev][0] });
     if (!items.length) return '<div class="muted">Everything is solved. Impressive.</div>';

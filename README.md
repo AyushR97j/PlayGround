@@ -10,8 +10,9 @@ One sheet for OA preparation, hosted at **https://ayushr97j.github.io/PlayGround
 | Apple Hard | 52 | Sheet2 of the `problem_tracker` Google Sheet |
 | Claude 109 | 59 targeted + 50 breadth | `OA_Practice_Tracker` (parts 1 and 2); statuses and notes from the sheet's *59 + 50 by Claude* tab |
 | Company OA | 31 (C1 + C2) | `OA_Practice_Tracker` (11 Oct set) |
+| CSES | 75 (Dynamic Programming 23, Graph Algorithms 36, Tree Algorithms 16) | [CSES Problem Set](https://cses.fi/problemset/) |
 
-1,278 unique problems in total. A problem that appears in several sections has one status, one star and one set of notes, so solving it once marks it everywhere.
+1,347 unique problems in total. A problem that appears in several sections has one status, one star and one set of notes, so solving it once marks it everywhere.
 
 ## Using it
 
